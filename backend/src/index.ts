@@ -2,7 +2,7 @@ import { Elysia, t } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import { db } from './db';
-import { users, inspirations } from './db/schema';
+import { users, inspirations, figmaClipboardItems } from './db/schema';
 import { eq, desc } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -274,7 +274,58 @@ const app = new Elysia()
     })
   )
 
+
+  // Figma Clipboard Routes
+  .group('/figma', (app) => app
+    // Get all clipboard items
+    .get('/clipboard', async ({ set }) => {
+      try {
+        const items = await db.select().from(figmaClipboardItems).orderBy(desc(figmaClipboardItems.createdAt));
+        return items;
+      } catch (error) {
+        console.error('Error fetching clipboard items:', error);
+        set.status = 500;
+        return { error: 'Failed to fetch items', details: error };
+      }
+    })
+
+
+    .post('/clipboard', async ({ body, set }) => {
+      try {
+        const { content, description, illustration } = body;
+        let illustrationUrl: string | undefined = undefined;
+
+        if (illustration) {
+          const buffer = Buffer.from(await illustration.arrayBuffer());
+          const result = await uploadToR2(buffer, illustration.name, 'figma-clips');
+          if (result.success) {
+            illustrationUrl = result.url;
+          }
+        }
+
+        const [newItem] = await db.insert(figmaClipboardItems).values({
+          content,
+          description: description || undefined,
+          illustration: illustrationUrl,
+        }).returning();
+
+        return newItem;
+      } catch (error) {
+        console.error("Error saving figma item:", error);
+        set.status = 500;
+        return { error: 'Failed to save item', details: String(error) };
+      }
+    }, {
+      body: t.Object({
+        content: t.String(),
+        description: t.Optional(t.String()),
+        illustration: t.Optional(t.File())
+      })
+    })
+  )
+
   .listen(3040);
+
 
 console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
 console.log(`📚 Swagger docs: http://localhost:3040/swagger`);

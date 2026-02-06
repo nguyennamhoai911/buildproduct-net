@@ -35,3 +35,15 @@ export const inspirations = pgTable("inspirations", {
 
 export type Inspiration = typeof inspirations.$inferSelect;
 export type NewInspiration = typeof inspirations.$inferInsert;
+
+export const figmaClipboardItems = pgTable("figma_clipboard_items", {
+    id: serial("id").primaryKey(),
+    content: text("content").notNull(), // Storing as JSON string to ensure compatibility if jsonb isn't set up or needed
+    illustration: text("illustration"), // URL to the image
+    description: text("description"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type FigmaClipboardItem = typeof figmaClipboardItems.$inferSelect;
+export type NewFigmaClipboardItem = typeof figmaClipboardItems.$inferInsert;
