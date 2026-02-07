@@ -20,6 +20,7 @@ export interface UploadResult {
   success: boolean;
   url?: string;
   key?: string;
+  size?: number; // File size in bytes
   error?: string;
 }
 
@@ -59,6 +60,7 @@ export async function uploadToR2(
       success: true,
       url: publicUrl,
       key: key,
+      size: file.length, // Return actual file size in bytes
     };
   } catch (error) {
     console.error('R2 Upload Error:', error);

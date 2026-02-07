@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test File Size Display</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .asset-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .asset-image {
+            width: 100%;
+            aspect-ratio: 1;
+            background: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .asset-info {
+            padding: 16px;
+        }
+        .asset-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .asset-date {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .file-size-info {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #f3f4f6;
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #6b7280;
+        }
+        .size-total {
+            font-weight: 600;
+            color: #374151;
+        }
+        button {
+            background: #4f46e5;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #4338ca;
+        }
+        #status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .success { background: #d1fae5; color: #065f46; }
+        .error { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+    <h1>Test File Size Display</h1>
+    <button onclick="loadAssets()">Load Assets from API</button>
+    <div id="status"></div>
+    <div id="assetGrid" class="asset-grid"></div>
+
+    <script>
+        function formatFileSize(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            const k = 1024;
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${(bytes / Math.pow(k, i)).toFixed(1)} ${units[i]}`;
+        }
+
+        async function loadAssets() {
+            const statusDiv = document.getElementById('status');
+            const gridDiv = document.getElementById('assetGrid');
+            
+            statusDiv.textContent = 'Loading...';
+            statusDiv.className = '';
+            
+            try {
+                const response = await fetch('http://localhost:3040/figma/clipboard');
+                const assets = await response.json();
+                
+                statusDiv.textContent = `Loaded ${assets.length} assets successfully!`;
+                statusDiv.className = 'success';
+                
+                gridDiv.innerHTML = assets.map(asset => `
+                    <div class="asset-card">
+                        <div class="asset-image">
+                            ${asset.illustration ? 
+                                `<img src="${asset.illustration}" style="width:100%;height:100%;object-fit:cover;">` : 
+                                '📄'}
+                        </div>
+                        <div class="asset-info">
+                            <div class="asset-title">${asset.title || asset.description || 'Untitled'}</div>
+                            <div class="asset-date">${new Date(asset.createdAt).toLocaleDateString()}</div>
+                            ${(asset.size || asset.thumbnailSize) ? `
+                                <div class="file-size-info">
+                                    <span>📝 ${formatFileSize(asset.size)}</span>
+                                    ${asset.thumbnailSize ? `<span>🖼️ ${formatFileSize(asset.thumbnailSize)}</span>` : ''}
+                                    <span class="size-total">${formatFileSize((asset.size || 0) + (asset.thumbnailSize || 0))}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                statusDiv.textContent = `Error: ${error.message}`;
+                statusDiv.className = 'error';
+            }
+        }
+    </script>
+</body>
+</html>

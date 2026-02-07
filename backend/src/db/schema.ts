@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, boolean, pgEnum, integer } from "drizzle-orm/pg-core";
 
 export const roleEnum = pgEnum('role', ['USER', 'ADMIN', 'ROOT']);
 
@@ -36,14 +36,40 @@ export const inspirations = pgTable("inspirations", {
 export type Inspiration = typeof inspirations.$inferSelect;
 export type NewInspiration = typeof inspirations.$inferInsert;
 
+export const folders = pgTable("folders", {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    parentId: integer("parent_id"), // simple hierarchy
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type Folder = typeof folders.$inferSelect;
+export type NewFolder = typeof folders.$inferInsert;
+
 export const figmaClipboardItems = pgTable("figma_clipboard_items", {
     id: serial("id").primaryKey(),
-    content: text("content").notNull(), // Storing as JSON string to ensure compatibility if jsonb isn't set up or needed
-    illustration: text("illustration"), // URL to the image
+    content: text("content").notNull(),
+    illustration: text("illustration"),
     description: text("description"),
+    title: text("title"),
+    tags: text("tags"),
+    folderId: integer("folder_id"),
+    category: text("category"), // e.g. "Button", "Card"
+    type: text("type"), // e.g. "Component", "Page", "Icon"
+    // TODO: Uncomment these after migration adds the columns
+    project: text("project"), // e.g. "E-commerce", "Dashboard"
+    size: integer("size").default(0), // Content size in bytes
+    thumbnailSize: integer("thumbnail_size").default(0), // Thumbnail size in bytes
+    userId: integer("user_id"), // User who created this
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export type FigmaClipboardItem = typeof figmaClipboardItems.$inferSelect;
 export type NewFigmaClipboardItem = typeof figmaClipboardItems.$inferInsert;
+
+// TODO: After running /migrate endpoint, add back:
+// - userActivityLogs table
+// - assetActions table
+// - userId, size, thumbnailSize fields to figmaClipboardItems

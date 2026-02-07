@@ -36,3 +36,26 @@ export const inspirationAPI = {
     },
     // Add update/delete later
 };
+
+export const userAPI = {
+    getAll: async (params?: { page?: number; limit?: number; q?: string }) => {
+        const response = await api.get('/users', { params });
+        return response.data;
+    },
+    getOne: async (id: number) => {
+        const response = await api.get(`/users/${id}`);
+        return response.data;
+    },
+    update: async (id: number, data: any) => {
+        const response = await api.put(`/users/${id}`, data);
+        return response.data;
+    },
+    delete: async (id: number) => {
+        const response = await api.delete(`/users/${id}`);
+        return response.data;
+    },
+    getAnalytics: async (id: number) => {
+        const response = await api.get(`/users/${id}/analytics`);
+        return response.data;
+    }
+};

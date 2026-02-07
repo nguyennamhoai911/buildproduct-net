@@ -1,24 +1,69 @@
-import { useEffect, useState } from 'react';
-import { Table, Button, Space, Tag, Modal, Form, Input, Select, message } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useEffect, useState, type ChangeEvent } from 'react';
+import {
+    Box,
+    Button,
+    Typography,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    MenuItem,
+    IconButton,
+    Chip,
+    Alert,
+    Snackbar,
+    Stack,
+    Paper
+} from '@mui/material';
+import { DataGrid, type GridColDef, type GridRenderCellParams } from '@mui/x-data-grid';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { inspirationAPI } from '../lib/api';
 
-const { Option } = Select;
+interface Inspiration {
+    id: string | number;
+    name: string;
+    website: string;
+    category: string;
+    field: string;
+    style: string;
+    rating: string;
+    country: string;
+}
+
+const initialFormState = {
+    name: '',
+    website: '',
+    category: 'Product',
+    field: '',
+    style: '',
+    rating: '5',
+    country: 'Việt Nam'
+};
 
 export default function InspirationsPage() {
-    const [data, setData] = useState([]);
+    const [rows, setRows] = useState<Inspiration[]>([]);
     const [loading, setLoading] = useState(false);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [form] = Form.useForm();
+    const [open, setOpen] = useState(false);
+    const [formData, setFormData] = useState(initialFormState);
+    const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+        open: false,
+        message: '',
+        severity: 'success'
+    });
 
     const fetchData = async () => {
         setLoading(true);
         try {
             const res = await inspirationAPI.getAll();
-            setData(res);
+            const mappedData = res.map((item: any, index: number) => ({
+                ...item,
+                id: item.id || item._id || index
+            }));
+            setRows(mappedData);
         } catch (error: any) {
             console.error(error);
-            message.error(error.message || 'Failed to fetch data');
+            showSnackbar(error.message || 'Failed to fetch data', 'error');
         } finally {
             setLoading(false);
         }
@@ -28,102 +73,185 @@ export default function InspirationsPage() {
         fetchData();
     }, []);
 
-    const handleCreate = async (values: any) => {
+    const showSnackbar = (message: string, severity: 'success' | 'error') => {
+        setSnackbar({ open: true, message, severity });
+    };
+
+    const handleCloseSnackbar = () => {
+        setSnackbar({ ...snackbar, open: false });
+    };
+
+    const handleCreate = async () => {
         try {
-            await inspirationAPI.create(values);
-            message.success('Created successfully');
-            setIsModalOpen(false);
-            form.resetFields();
+            await inspirationAPI.create(formData);
+            showSnackbar('Created successfully', 'success');
+            setOpen(false);
+            setFormData(initialFormState);
             fetchData();
         } catch (error) {
-            message.error('Failed to create');
+            showSnackbar('Failed to create', 'error');
         }
     };
 
-    const columns = [
-        {
-            title: 'Name',
-            dataIndex: 'name',
-            key: 'name',
+    const columns: GridColDef[] = [
+        { field: 'name', headerName: 'Name', flex: 1, minWidth: 150 },
+        { 
+            field: 'website', 
+            headerName: 'Website', 
+            flex: 1,
+            renderCell: (params: GridRenderCellParams) => (
+                <a href={params.value} target="_blank" rel="noopener noreferrer" style={{ color: '#1976d2' }}>
+                    {params.value}
+                </a>
+            )
         },
         {
-            title: 'Category',
-            dataIndex: 'category',
-            key: 'category',
-            render: (text: string) => <Tag color={text === 'Product' ? 'blue' : 'green'}>{text}</Tag>,
+            field: 'category',
+            headerName: 'Category',
+            width: 120,
+            renderCell: (params: GridRenderCellParams) => (
+                <Chip
+                    label={params.value}
+                    color={params.value === 'Product' ? 'primary' : 'success'}
+                    size="small"
+                    variant="outlined"
+                />
+            )
         },
+        { field: 'field', headerName: 'Field', width: 130 },
+        { field: 'country', headerName: 'Country', width: 120 },
         {
-            title: 'Field',
-            dataIndex: 'field',
-            key: 'field',
-        },
-        {
-            title: 'Country',
-            dataIndex: 'country',
-            key: 'country',
-        },
-        {
-            title: 'Action',
-            key: 'action',
-            render: (_: any, record: any) => (
-                <Space size="middle">
-                    <Button icon={<EditOutlined />} />
-                    <Button danger icon={<DeleteOutlined />} />
-                </Space>
-            ),
-        },
+            field: 'actions',
+            headerName: 'Action',
+            width: 100,
+            sortable: false,
+            renderCell: () => (
+                <Stack direction="row" spacing={1}>
+                    <IconButton size="small" color="primary">
+                        <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton size="small" color="error">
+                        <DeleteIcon fontSize="small" />
+                    </IconButton>
+                </Stack>
+            )
+        }
     ];
 
+    const handleChange = (field: keyof typeof initialFormState) => (
+        e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    ) => {
+        setFormData({ ...formData, [field]: e.target.value });
+    };
+
     return (
-        <div style={{ padding: 24 }}>
-            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-                <h2>Inspirations Management</h2>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>
+        <Box sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, alignItems: 'center' }}>
+                <Typography variant="h4" component="h1" fontWeight="bold">
+                    Inspirations Management
+                </Typography>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}>
                     Add New
                 </Button>
-            </div>
+            </Box>
 
-            <Table columns={columns} dataSource={data} rowKey="id" loading={loading} />
+            <Paper elevation={0} sx={{ height: 600, width: '100%', bgcolor: 'background.paper' }}>
+                <DataGrid
+                    rows={rows}
+                    columns={columns}
+                    loading={loading}
+                    initialState={{
+                        pagination: {
+                            paginationModel: { page: 0, pageSize: 10 },
+                        },
+                    }}
+                    pageSizeOptions={[5, 10, 25]}
+                    checkboxSelection
+                    disableRowSelectionOnClick
+                    sx={{ border: 0 }}
+                />
+            </Paper>
 
-            <Modal
-                title="Add New Inspiration"
-                open={isModalOpen}
-                onOk={() => form.submit()}
-                onCancel={() => setIsModalOpen(false)}
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Add New Inspiration</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ mt: 1 }}>
+                        <TextField
+                            autoFocus
+                            label="Name"
+                            fullWidth
+                            value={formData.name}
+                            onChange={handleChange('name')}
+                            required
+                        />
+                        <TextField
+                            label="Website"
+                            fullWidth
+                            value={formData.website}
+                            onChange={handleChange('website')}
+                            required
+                        />
+                        <TextField
+                            select
+                            label="Category"
+                            fullWidth
+                            value={formData.category}
+                            onChange={handleChange('category')}
+                        >
+                            <MenuItem value="Product">Product (Case Study)</MenuItem>
+                            <MenuItem value="Source">Source (Resource)</MenuItem>
+                        </TextField>
+                        <TextField
+                            label="Field"
+                            fullWidth
+                            value={formData.field}
+                            onChange={handleChange('field')}
+                        />
+                        <TextField
+                            label="Style"
+                            fullWidth
+                            value={formData.style}
+                            onChange={handleChange('style')}
+                        />
+                        <TextField
+                            select
+                            label="Rating"
+                            fullWidth
+                            value={formData.rating}
+                            onChange={handleChange('rating')}
+                        >
+                            <MenuItem value="1">1 Star</MenuItem>
+                            <MenuItem value="2">2 Stars</MenuItem>
+                            <MenuItem value="3">3 Stars</MenuItem>
+                            <MenuItem value="4">4 Stars</MenuItem>
+                            <MenuItem value="5">5 Stars</MenuItem>
+                        </TextField>
+                        <TextField
+                            label="Country"
+                            fullWidth
+                            value={formData.country}
+                            onChange={handleChange('country')}
+                        />
+                    </Stack>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={() => setOpen(false)}>Cancel</Button>
+                    <Button onClick={handleCreate} variant="contained">
+                        Create
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={6000}
+                onClose={handleCloseSnackbar}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             >
-                <Form form={form} layout="vertical" onFinish={handleCreate}>
-                    <Form.Item name="name" label="Name" rules={[{ required: true }]}>
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name="website" label="Website" rules={[{ required: true }]}>
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name="category" label="Category" initialValue="Product">
-                        <Select>
-                            <Option value="Product">Product (Case Study)</Option>
-                            <Option value="Source">Source (Resource)</Option>
-                        </Select>
-                    </Form.Item>
-                    <Form.Item name="field" label="Field">
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name="style" label="Style">
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name="rating" label="Rating">
-                        <Select>
-                            <Option value="1">1 Star</Option>
-                            <Option value="2">2 Stars</Option>
-                            <Option value="3">3 Stars</Option>
-                            <Option value="4">4 Stars</Option>
-                            <Option value="5">5 Stars</Option>
-                        </Select>
-                    </Form.Item>
-                    <Form.Item name="country" label="Country" initialValue="Việt Nam">
-                        <Input />
-                    </Form.Item>
-                </Form>
-            </Modal>
-        </div>
+                <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
+        </Box>
     );
 }
