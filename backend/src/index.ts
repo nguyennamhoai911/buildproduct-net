@@ -7,6 +7,7 @@ import { eq, desc, ilike, or, sql, and, gte, lte, inArray } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { uploadToR2 } from './services/r2.service';
+import { compressThumbnail } from './services/image.service';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
 
@@ -968,10 +969,21 @@ const app = new Elysia()
         }
 
         // Convert file to buffer
-        const buffer = Buffer.from(await file.arrayBuffer());
+        let buffer = Buffer.from(await file.arrayBuffer() as any);
+        let fileName = file.name;
+
+        // Compress if it's an image
+        if (file.type.startsWith('image/')) {
+          const compressed = await compressThumbnail(buffer, 200);
+          buffer = compressed.buffer;
+          // Change extension to webp if compressed
+          if (compressed.format === 'webp') {
+            fileName = fileName.replace(/\.[^/.]+$/, "") + ".webp";
+          }
+        }
 
         // Upload to R2
-        const result = await uploadToR2(buffer, file.name, folder);
+        const result = await uploadToR2(buffer, fileName, folder);
 
         if (!result.success) {
           set.status = 500;
@@ -1107,9 +1119,9 @@ const app = new Elysia()
             folderId: figmaClipboardItems.folderId,
             category: figmaClipboardItems.category,
             type: figmaClipboardItems.type,
-            // project: figmaClipboardItems.project,
-            // size: figmaClipboardItems.size,
-            // thumbnailSize: figmaClipboardItems.thumbnailSize,
+            project: figmaClipboardItems.project,
+            size: figmaClipboardItems.size,
+            thumbnailSize: figmaClipboardItems.thumbnailSize,
             userId: figmaClipboardItems.userId,
             user: {
                 name: users.name,
@@ -1134,10 +1146,10 @@ const app = new Elysia()
             // @ts-ignore
             q = q.where(eq(figmaClipboardItems.type, query.type));
         }
-        // if (query.project) {
-        //     // @ts-ignore
-        //     q = q.where(eq(figmaClipboardItems.project, query.project));
-        // }
+        if (query.project) {
+            // @ts-ignore
+            q = q.where(eq(figmaClipboardItems.project, query.project));
+        }
 
         const items = await q.orderBy(desc(figmaClipboardItems.createdAt));
         return items;
@@ -1178,11 +1190,20 @@ const app = new Elysia()
         let thumbnailSize = 0;
 
         if (illustration) {
-          const buffer = Buffer.from(await illustration.arrayBuffer());
-          const result = await uploadToR2(buffer, illustration.name, 'figma-clips');
+          let buffer = Buffer.from(await illustration.arrayBuffer() as any);
+          let fileName = illustration.name;
+
+          // Compress thumbnail to WebP (< 200KB)
+          const compressed = await compressThumbnail(buffer, 200);
+          buffer = compressed.buffer;
+          if (compressed.format === 'webp') {
+            fileName = fileName.replace(/\.[^/.]+$/, "") + ".webp";
+          }
+
+          const result = await uploadToR2(buffer, fileName, 'figma-clips');
           if (result.success) {
             illustrationUrl = result.url;
-            thumbnailSize = result.size || buffer.length; // Use size from R2, fallback to buffer length
+            thumbnailSize = result.size || buffer.length;
           }
         }
 
@@ -1231,7 +1252,7 @@ const app = new Elysia()
     .patch('/clipboard/:id', async ({ params, body, set }) => {
       try {
         const id = parseInt(params.id);
-        const { title, description, tags, folderId, category, type, project } = body;
+        const { title, description, tags, folderId, category, type, project, content, illustration } = body;
 
         const updateData: any = { updatedAt: new Date() };
         if (title !== undefined) updateData.title = title;
@@ -1240,7 +1261,29 @@ const app = new Elysia()
         if (folderId !== undefined) updateData.folderId = folderId;
         if (category !== undefined) updateData.category = category;
         if (type !== undefined) updateData.type = type;
-        // if (project !== undefined) updateData.project = project;
+        if (project !== undefined) updateData.project = project;
+        if (content !== undefined) {
+            updateData.content = content;
+            updateData.size = Buffer.byteLength(content, 'utf8');
+        }
+
+        if (illustration) {
+            let buffer = Buffer.from(await illustration.arrayBuffer() as any);
+            let fileName = illustration.name;
+
+            // Compress thumbnail to WebP (< 200KB)
+            const compressed = await compressThumbnail(buffer, 200);
+            buffer = compressed.buffer;
+            if (compressed.format === 'webp') {
+                fileName = fileName.replace(/\.[^/.]+$/, "") + ".webp";
+            }
+
+            const result = await uploadToR2(buffer, fileName, 'figma-clips');
+            if (result.success) {
+                updateData.illustration = result.url;
+                updateData.thumbnailSize = result.size || buffer.length;
+            }
+        }
 
         const [updatedItem] = await db.update(figmaClipboardItems)
           .set(updateData)
@@ -1254,6 +1297,7 @@ const app = new Elysia()
 
         return updatedItem;
       } catch (error) {
+        console.error("Error updating item:", error);
         set.status = 500;
         return { error: 'Failed to update item', details: String(error) };
       }
@@ -1268,7 +1312,9 @@ const app = new Elysia()
         folderId: t.Optional(t.Nullable(t.Number())),
         category: t.Optional(t.String()),
         type: t.Optional(t.String()),
-        project: t.Optional(t.String())
+        project: t.Optional(t.String()),
+        content: t.Optional(t.String()),
+        illustration: t.Optional(t.File())
       })
     })
 
@@ -1324,6 +1370,19 @@ const app = new Elysia()
       const { runMigration } = await import('./services/migration.service');
       const result = await runMigration();
       return result;
+  })
+
+  // Assign assets with no creator to a specific user or the first user
+  .get('/assign-unknown-assets', async ({ query, set }) => {
+      try {
+          const { assignUnknownAssets } = await import('./services/migration.service');
+          const userId = query.userId ? Number(query.userId) : undefined;
+          const result = await assignUnknownAssets(userId);
+          return result;
+      } catch (error) {
+          set.status = 500;
+          return { success: false, error: String(error) };
+      }
   })
 
   // Update asset sizes for existing items

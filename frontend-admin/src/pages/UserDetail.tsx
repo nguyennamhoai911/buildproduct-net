@@ -128,18 +128,18 @@ export default function UserDetail() {
             field: 'size',
             headerName: 'Total Size',
             width: 150,
-            valueFormatter: (params) => formatBytes(Number(params.value))
+            valueFormatter: (value) => formatBytes(Number(value))
         },
         {
             field: 'thumbnailSize',
             headerName: 'Thumbnail Size',
             width: 150,
-            valueFormatter: (params) => formatBytes(Number(params.value))
+            valueFormatter: (value) => formatBytes(Number(value))
         },
     ];
 
     const activityColumns: GridColDef[] = [
-        { field: 'createdAt', headerName: 'Time', width: 200, valueFormatter: (params) => new Date(params.value).toLocaleString() },
+        { field: 'createdAt', headerName: 'Time', width: 200, valueFormatter: (value) => new Date(value).toLocaleString() },
         { field: 'action', headerName: 'Action', width: 150 },
         { field: 'country', headerName: 'Country', width: 150 },
         { field: 'ipAddress', headerName: 'IP Address', width: 150 },
@@ -147,14 +147,14 @@ export default function UserDetail() {
     ];
 
     const assetColumns: GridColDef[] = [
-        { field: 'createdAt', headerName: 'Time', width: 200, valueFormatter: (params) => new Date(params.value).toLocaleString() },
+        { field: 'createdAt', headerName: 'Time', width: 200, valueFormatter: (value) => new Date(value).toLocaleString() },
         {
             field: 'action',
             headerName: 'Action',
             width: 150,
             renderCell: (params) => (
                 <Chip
-                    label={params.value}
+                    label={params.value as string}
                     color={params.value === 'COPY' ? 'primary' : 'default'}
                     size="small"
                 />
@@ -166,9 +166,9 @@ export default function UserDetail() {
     const inventoryColumns: GridColDef[] = [
         { field: 'id', headerName: 'ID', width: 70 },
         { field: 'title', headerName: 'Asset Title', width: 250 },
-        { field: 'size', headerName: 'File Size', width: 130, valueFormatter: (params) => formatBytes(Number(params.value)) },
-        { field: 'thumbnailSize', headerName: 'Thumb Size', width: 130, valueFormatter: (params) => formatBytes(Number(params.value)) },
-        { field: 'createdAt', headerName: 'Uploaded At', width: 200, valueFormatter: (params) => new Date(params.value).toLocaleString() },
+        { field: 'size', headerName: 'File Size', width: 130, valueFormatter: (value) => formatBytes(Number(value)) },
+        { field: 'thumbnailSize', headerName: 'Thumb Size', width: 130, valueFormatter: (value) => formatBytes(Number(value)) },
+        { field: 'createdAt', headerName: 'Uploaded At', width: 200, valueFormatter: (value) => new Date(value).toLocaleString() },
     ];
 
     return (

@@ -9,14 +9,15 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "elysia": "latest",
-    "drizzle-orm": "latest",
-    "postgres": "latest",
+    "@aws-sdk/client-s3": "^3.709.0",
     "@elysiajs/cors": "latest",
     "@elysiajs/swagger": "latest",
     "bcryptjs": "^2.4.3",
+    "drizzle-orm": "latest",
+    "elysia": "latest",
     "jsonwebtoken": "^9.0.2",
-    "@aws-sdk/client-s3": "^3.709.0"
+    "postgres": "latest",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "bun-types": "latest",
